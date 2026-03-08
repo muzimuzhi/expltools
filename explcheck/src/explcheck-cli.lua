@@ -286,6 +286,38 @@ local function parse_options()
     end
   end
 
+  local function parse_short_option(argument_no_dash)
+    local option_name = argument_no_dash:sub(1, 1)
+    local option_value
+    if not short_options[option_name] then
+      unknown_argument(argument)
+    end
+    if short_options[option_name].value_required then
+      if argument_no_dash:len() > 2 then
+        -- Parse short option with merged value `-pVALUE`.
+        option_value = argument_no_dash:sub(2)
+      else
+        -- Parse short option with separate value `-p VALUE`.
+        if i == #arg or arg[i + 1]:sub(1, 1) == "-" then
+          print(string.format("No value provided for option: %s\n", argument))
+          print_usage_and_exit(1)
+        end
+        i = i + 1
+        option_value = arg[i]
+      end
+      short_options[option_name].action(option_value)
+    else
+      if argument_no_dash:len() > 2 then
+        -- Parse grouped short options `-abc`.
+        short_options[option_name].action()
+        parse_short_option(argument_no_dash:sub(2)) -- recursive call
+      else
+        -- Parse simple short option `-a`.
+        short_options[option_name].action()
+      end
+    end
+  end
+
   while i <= #arg do
     argument = arg[i]
     if only_pathnames_from_now_on then
@@ -293,18 +325,10 @@ local function parse_options()
       table.insert(allow_pathname_separators, true)
     elseif argument == "--" then
       only_pathnames_from_now_on = true
-    -- Parse long options.
     elseif argument:sub(1, 2) == "--" then
       parse_long_option()
-    -- Parse short options.
     elseif argument:sub(1, 1) == "-" and argument:len() == 2 then
-      -- TODO: Support merged short options, e.g. `-abc` as a shorthand for `-a -b -c`.
-      local option_name = argument:sub(2, 2)
-      if not short_options[option_name] then
-        unknown_argument(argument)
-      end
-      -- TODO: Support short options with values, e.g. `-p VALUE`.
-      short_options[option_name].action()
+      parse_short_option(argument:sub(2))
     elseif argument:sub(1, 1) == "-" then
       unknown_argument(argument)
     else
