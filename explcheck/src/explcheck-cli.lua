@@ -250,16 +250,11 @@ local function unknown_argument(argument)
   print_usage_and_exit(1)
 end
 
-local i = 1
-while i <= #arg do
-  local argument = arg[i]
-  if only_pathnames_from_now_on then
-    table.insert(pathnames, argument)
-    table.insert(allow_pathname_separators, true)
-  elseif argument == "--" then
-    only_pathnames_from_now_on = true
-  -- Parse long options.
-  elseif argument:sub(1, 2) == "--" then
+local function parse_options()
+  local argument
+  local i = 1
+
+  local function parse_long_option()
     local option_name, option_value
     local pos = argument:find("=", 1, true)
     if pos then
@@ -289,23 +284,38 @@ while i <= #arg do
       end
       long_options[option_name].action()
     end
-  -- Parse short options.
-  elseif argument:sub(1, 1) == "-" and argument:len() == 2 then
-    -- TODO: Support merged short options, e.g. `-abc` as a shorthand for `-a -b -c`.
-    local option_name = argument:sub(2, 2)
-    if not short_options[option_name] then
-      unknown_argument(argument)
-    end
-    -- TODO: Support short options with values, e.g. `-p VALUE`.
-    short_options[option_name].action()
-  elseif argument:sub(1, 1) == "-" then
-    unknown_argument(argument)
-  else
-    table.insert(pathnames, argument)
-    table.insert(allow_pathname_separators, true)
   end
-  i = i + 1
+
+  while i <= #arg do
+    argument = arg[i]
+    if only_pathnames_from_now_on then
+      table.insert(pathnames, argument)
+      table.insert(allow_pathname_separators, true)
+    elseif argument == "--" then
+      only_pathnames_from_now_on = true
+    -- Parse long options.
+    elseif argument:sub(1, 2) == "--" then
+      parse_long_option()
+    -- Parse short options.
+    elseif argument:sub(1, 1) == "-" and argument:len() == 2 then
+      -- TODO: Support merged short options, e.g. `-abc` as a shorthand for `-a -b -c`.
+      local option_name = argument:sub(2, 2)
+      if not short_options[option_name] then
+        unknown_argument(argument)
+      end
+      -- TODO: Support short options with values, e.g. `-p VALUE`.
+      short_options[option_name].action()
+    elseif argument:sub(1, 1) == "-" then
+      unknown_argument(argument)
+    else
+      table.insert(pathnames, argument)
+      table.insert(allow_pathname_separators, true)
+    end
+    i = i + 1
+  end
 end
+
+parse_options()
 
 assert(#pathnames == #allow_pathname_separators)
 
