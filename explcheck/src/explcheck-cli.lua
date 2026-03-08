@@ -245,8 +245,18 @@ local short_options = {
   p = long_options["porcelain"],
 }
 
-local function unknown_argument(argument)
+local function err_unknown_argument(argument)
   print(string.format('Unrecognized argument: %s\n', argument))
+  print_usage_and_exit(1)
+end
+
+local function err_missing_value(argument)
+  print(string.format("No value provided for option: %s\n", argument))
+  print_usage_and_exit(1)
+end
+
+local function err_unexpected_value(argument)
+  print(string.format("Option does not take a value: %s\n", argument))
   print_usage_and_exit(1)
 end
 
@@ -264,14 +274,13 @@ local function parse_options()
       option_name = argument:sub(3)
     end
     if not long_options[option_name] then
-      unknown_argument(argument)
+      err_unknown_argument(argument)
     end
     if long_options[option_name].value_required then
       if not option_value then
         -- Parse long option with separate value `--option VALUE`.
         if i == #arg or arg[i + 1]:sub(1, 1) == "-" then
-          print(string.format("No value provided for option: %s\n", argument))
-          print_usage_and_exit(1)
+          err_missing_value(argument)
         end
         i = i + 1
         option_value = arg[i]
@@ -279,8 +288,7 @@ local function parse_options()
       long_options[option_name].action(option_value)
     else
       if option_value then
-        print(string.format("Option does not take a value: %s\n", argument))
-        print_usage_and_exit(1)
+        err_unexpected_value(argument)
       end
       long_options[option_name].action()
     end
@@ -290,7 +298,7 @@ local function parse_options()
     local option_name = argument_no_dash:sub(1, 1)
     local option_value
     if not short_options[option_name] then
-      unknown_argument(argument)
+      err_unknown_argument(argument)
     end
     if short_options[option_name].value_required then
       if argument_no_dash:len() > 2 then
@@ -299,8 +307,7 @@ local function parse_options()
       else
         -- Parse short option with separate value `-p VALUE`.
         if i == #arg or arg[i + 1]:sub(1, 1) == "-" then
-          print(string.format("No value provided for option: %s\n", argument))
-          print_usage_and_exit(1)
+          err_missing_value(argument)
         end
         i = i + 1
         option_value = arg[i]
@@ -330,7 +337,7 @@ local function parse_options()
     elseif argument:sub(1, 1) == "-" and argument:len() == 2 then
       parse_short_option(argument:sub(2))
     elseif argument:sub(1, 1) == "-" then
-      unknown_argument(argument)
+      err_unknown_argument(argument)
     else
       table.insert(pathnames, argument)
       table.insert(allow_pathname_separators, true)
